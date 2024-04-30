@@ -38,15 +38,16 @@ impl Workbook {
 
 fn createColsAndRowsFromJson(jsonList: Value) -> Workbook {
     let cols: Vec<String> = Vec::new();
-    let workbookCols: Vec<WorkbookColumn> = Vec::new();
+    let workbook_cols: Vec<WorkbookColumn> = Vec::new();
     let mut rows: HashMap<String, String> = HashMap::new();
 
     if let Some(obj) = jsonList.as_object() {
-        cols = obj.keys().collect();
+        let json_to_keys: Vec<&String> = obj.keys().collect();
+        cols = json_to_keys.into_iter().cloned().collect();
     }
     if let Some(array) = jsonList.as_array() {
         for element in array {
-            let mut map = HashMap::new();
+            let mut map: HashMap<_, _> = HashMap::new();
             for col in cols {
                 if let Some(propVal) = element.get(col) {
                     rows.insert(col as String, propVal.to_string());
@@ -57,14 +58,19 @@ fn createColsAndRowsFromJson(jsonList: Value) -> Workbook {
 
     // Create workbook cols
     for col in cols {
-        workbookCols.push(WorkbookColumn::new(
-            col,
-            "".to_owned(),
-            50
-        ));
+        let new_col: WorkbookColumn = WorkbookColumn {
+            field: col,
+            format: "".to_owned(),
+            size: 50
+        };
+        workbook_cols.push(new_col);
     }
 
-    let wb: Workbook = Workbook::new(workbookCols, rows, "sheet test");
+    Workbook {
+        columns: workbook_cols, 
+        rows: rows,
+        name: "sheet test".to_owned()
+    }
 }
 
 fn main() {
