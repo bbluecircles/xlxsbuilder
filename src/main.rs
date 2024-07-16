@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
+use std::{collections::HashMap, hash::Hash, ptr::null};
 
 use serde::{Deserialize};
 use serde_json::{Value, json};
@@ -37,21 +37,24 @@ impl Workbook {
 }
 
 fn createColsAndRowsFromJson(jsonList: Value) -> Workbook {
-    let cols: Vec<String> = Vec::new();
-    let workbook_cols: Vec<WorkbookColumn> = Vec::new();
+    let mut cols: Vec<String> = Vec::new();
+    let mut workbook_cols: Vec<WorkbookColumn> = Vec::new();
     let mut rows: HashMap<String, String> = HashMap::new();
 
     if let Some(obj) = jsonList.as_object() {
         let json_to_keys: Vec<&String> = obj.keys().collect();
-        cols = json_to_keys.into_iter().cloned().collect();
+        cols = json_to_keys.iter().map(|s| s.to_string()).collect();
     }
     if let Some(array) = jsonList.as_array() {
         for element in array {
-            let mut map: HashMap<_, _> = HashMap::new();
-            for col in cols {
-                if let Some(propVal) = element.get(col) {
-                    rows.insert(col as String, propVal.to_string());
-                }
+            for col in &cols {
+                if let Some(name_value) = element.get(col) {
+                    if let Some(name_str) = name_value.as_str() {
+                        let name: String = name_str.to_string();
+
+                        rows.insert(col.to_string(), name_value.to_string());
+                    }
+                }     
             }
         }
     }
