@@ -1,81 +1,82 @@
-use std::{collections::HashMap, hash::Hash, ptr::null};
+use std::{collections::{HashMap, HashSet}, error::Error, fs::File,  io::{BufReader, Read}, path::Path, ptr::null};
+
+use rust_xlsxwriter::*;
 
 use serde::{Deserialize};
-use serde_json::{Value, json};
+use serde_json::{Value, json, from_str};
 mod modules;
 
-struct WorkbookColumn {
-    field: String,
-    format: String,
-    size: u16
-}
 
-impl WorkbookColumn {
-    pub fn new(
-        field: String,
-        format: String,
-        size: u16
-    ) {
-        WorkbookColumn { field, format, size };
-    }
-}
+fn createWorksheetFromWorkbook(parsed_json: Value, mut workbook: Workbook) -> Result<(), XlsxError>
+{
+    let worksheet = workbook.add_worksheet();
+    worksheet.set_column_width(0, 22)?;
 
-struct Workbook {
-    columns: Vec<WorkbookColumn>,
-    rows: HashMap<String, String>,
-    name: String
-}
+    if let Value::Array(array) = parsed_json {
+        let mut keys: HashSet<String> = HashSet::new();
 
-impl Workbook {
-    pub fn new(
-        columns: Vec<WorkbookColumn>,
-        rows: HashMap<String, String>,
-        name: String
-    ) {
-        Workbook { columns, rows, name };
-    }
-}
+        for item in &array {
+            if let Value::Object(map) = item {
+                for key in map.keys() {
+                    keys.insert(key.clone());
+                }
+            }
+        }
+        
+        let mut headers: Vec<&String> = keys.iter().collect();
+        headers.sort();
 
-fn createColsAndRowsFromJson(jsonList: Value) -> Workbook {
-    let mut cols: Vec<String> = Vec::new();
-    let mut workbook_cols: Vec<WorkbookColumn> = Vec::new();
-    let mut rows: HashMap<String, String> = HashMap::new();
+        let heading_format = Format::new().set_border_bottom(FormatBorder::Medium);
 
-    if let Some(obj) = jsonList.as_object() {
-        let json_to_keys: Vec<&String> = obj.keys().collect();
-        cols = json_to_keys.iter().map(|s| s.to_string()).collect();
-    }
-    if let Some(array) = jsonList.as_array() {
-        for element in array {
-            for col in &cols {
-                if let Some(name_value) = element.get(col) {
-                    if let Some(name_str) = name_value.as_str() {
-                        let name: String = name_str.to_string();
+        for (col_num, header) in headers.iter().enumerate() {
+            println!("Header: {}", header);
+            worksheet.write_string_with_format(0, col_num as u16, header.to_owned(), &heading_format)?;
+        }
 
-                        rows.insert(col.to_string(), name_value.to_string());
+
+        for (row_num, item) in array.iter().enumerate() {
+            if let Value::Object(map) = item {
+                for (col_num, header) in headers.iter().enumerate() {
+                    if let Some(value) = map.get(*header) {
+                        match value {
+                            Value::String(s) => worksheet.write_string((row_num + 1) as u32, col_num as u16, s)?,
+                            Value::Number(n) => worksheet.write_number((row_num + 1) as u32, col_num as u16, n.as_f64().unwrap())?,
+                            Value::Bool(b) => worksheet.write_boolean((row_num + 1) as u32, col_num as u16, *b)?,
+                            Value::Null => worksheet.write_string((row_num + 1) as u32, col_num as u16, "")?,
+                            Value::Object(o) => worksheet.write_string((row_num + 1) as u32, col_num as u16, "")?,
+                            Value::Array(a) => worksheet.write_string((row_num + 1) as u32, col_num as u16, "")?
+                        };
                     }
-                }     
+                }
             }
         }
     }
 
-    // Create workbook cols
-    for col in cols {
-        let new_col: WorkbookColumn = WorkbookColumn {
-            field: col,
-            format: "".to_owned(),
-            size: 50
-        };
-        workbook_cols.push(new_col);
-    }
+    workbook.save("output.xlsx")?;
 
-    Workbook {
-        columns: workbook_cols, 
-        rows: rows,
-        name: "sheet test".to_owned()
-    }
+    Ok(())
+}
+
+
+fn read_json_from_file(filename: &str) -> Result<Value, Box<dyn Error>> {
+    println!("Filename: {}", filename);
+    let json_path = Path::new(filename);
+
+    let file = File::open(&json_path)?;
+    let reader = BufReader::new(file);
+
+    let u = serde_json::from_reader(reader)?;
+
+    Ok(u)
 }
 
 fn main() {
-    println!("Hello, world!");
+    let filename = "test.json";
+    let u = read_json_from_file(filename).unwrap();
+    
+    println!("{}", u);
+
+    let mut workbook = Workbook::new();
+    createWorksheetFromWorkbook(u, workbook);
+
 }
