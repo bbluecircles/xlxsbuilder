@@ -10,7 +10,6 @@ mod modules;
 fn createWorksheetFromWorkbook(parsed_json: Value, mut workbook: Workbook) -> Result<(), XlsxError>
 {
     let worksheet = workbook.add_worksheet();
-    worksheet.set_column_width(0, 22)?;
 
     if let Value::Array(array) = parsed_json {
         let mut keys: HashSet<String> = HashSet::new();
@@ -26,7 +25,11 @@ fn createWorksheetFromWorkbook(parsed_json: Value, mut workbook: Workbook) -> Re
         let mut headers: Vec<&String> = keys.iter().collect();
         headers.sort();
 
-        let heading_format = Format::new().set_border_bottom(FormatBorder::Medium);
+        let heading_format = Format::new()
+            .set_border_bottom(FormatBorder::Medium)
+            .set_background_color(Color::Theme(8, 4))
+            .set_font_color(Color::Theme(0, 1))
+            .set_bold();
 
         for (col_num, header) in headers.iter().enumerate() {
             println!("Header: {}", header);
@@ -50,6 +53,9 @@ fn createWorksheetFromWorkbook(parsed_json: Value, mut workbook: Workbook) -> Re
                 }
             }
         }
+
+        // Auto fit the sheet 
+        worksheet.autofit();
     }
 
     workbook.save("output.xlsx")?;
