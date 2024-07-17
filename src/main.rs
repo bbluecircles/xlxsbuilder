@@ -2,12 +2,141 @@ use std::{collections::{HashMap, HashSet}, error::Error, fs::File,  io::{BufRead
 
 use rust_xlsxwriter::*;
 
-use serde::{Deserialize};
+use serde::Deserialize;
 use serde_json::{Value, json, from_str};
 mod modules;
 
+#[derive(Deserialize, Debug)]
+struct WorkbookProtectionSettings {
+    should_protect: bool,
+    password: String
+}
+#[derive(Deserialize, Debug)]
+struct WorkbookConfigurationSettings {
+    protection: WorkbookProtectionSettings
+}
 
-fn createWorksheetFromWorkbook(parsed_json: Value, mut workbook: Workbook) -> Result<(), XlsxError>
+#[derive(Deserialize, Debug)]
+enum WorkSheetColumnDataType {
+    String,
+    Number,
+    Date,
+    Chart
+}
+#[derive(Deserialize, Debug)]
+enum WorkSheetColumnFormats {
+
+}
+
+#[derive(Deserialize, Debug)]
+struct WorksheetSettings {
+
+}
+
+#[derive(Deserialize, Debug)]
+struct WorksheetColumnProperties {
+    col_name: String,
+    col_data_type: WorkSheetColumnDataType,
+    col_formats: WorkSheetColumnFormats,
+    col_formula: String,
+    col_pattern: String
+}
+
+#[derive(Deserialize, Debug)]
+struct WorksheetConfiguration {
+    worksheet_name: String,
+    worksheet_properties: WorksheetSettings,
+    worksheet_column_properties: Vec<WorksheetColumnProperties>,
+    worksheet_data: Vec<Value>
+}
+
+#[derive(Deserialize, Debug)]
+struct WorkbookConfiguration {
+    workbook_name: String,
+    workbook_settings: WorkbookConfigurationSettings,
+    worksheets: Vec<WorksheetConfiguration>
+}
+
+struct WorkbookWrapper {
+    workbook: Workbook,
+    filename: String
+}
+
+fn create_column_for_worksheet_from_configuration(
+    worksheet: &Worksheet,
+    column_configuration: &WorksheetColumnProperties,
+    column_index: usize
+) {
+    let WorksheetColumnProperties {
+        col_name,
+        col_data_type,
+        col_formats,
+        col_formula,
+        col_pattern
+    } = column_configuration;
+
+
+}
+
+fn create_columns_for_worksheet_from_configuration(
+    worksheet: &Worksheet, 
+    column_configurations: &Vec<WorksheetColumnProperties>
+) {
+    for (index, column_configuration) in column_configurations.iter().enumerate() {
+        create_column_for_worksheet_from_configuration(worksheet, column_configuration, index)
+    }
+}
+
+fn prepare_worksheet_from_configuration(
+    workbook: &mut Workbook, 
+    worksheet_configuration: &WorksheetConfiguration, 
+    workbook_protection_settings: &WorkbookProtectionSettings
+) {
+    let WorksheetConfiguration { 
+        worksheet_name,
+        worksheet_properties,
+        worksheet_column_properties, 
+        worksheet_data 
+    } = worksheet_configuration;
+
+    let WorkbookProtectionSettings { should_protect, password } = workbook_protection_settings;
+
+    let worksheet= workbook.add_worksheet();
+
+    // Set the name
+    worksheet.set_name(worksheet_name);
+    
+    // If a password protection enabled, set it.
+    if *should_protect {
+        worksheet.protect_with_password(&password);
+    }
+
+    if worksheet_column_properties.len() > 0 {
+
+    }
+
+
+
+}
+
+fn create_workbook_from_json(json_string: &str) -> Result<WorkbookWrapper, Error>
+{
+    let workbook_configuration: WorkbookConfiguration = serde_json::from_str(json_string).unwrap_or_else(|e| {
+        println!("Failed to deserialize JSON: {}", e);
+        std::process::exit(1);
+    });
+
+    let new_workbook = Workbook::new();
+
+    let WorkbookConfigurationSettings { protection } = workbook_configuration.workbook_settings;
+
+    let worksheet_configurations: Vec<WorksheetConfiguration> = workbook_configuration.worksheets;
+
+    worksheet_configurations.iter().for_each(|worksheet_configuration| prepare_worksheet_from_configuration(&mut new_workbook, worksheet_configuration, protection));
+}
+
+
+fn create_worksheet_from_workbook(parsed_json: Value, mut workbook: Workbook) -> Result<(), XlsxError>
 {
     let worksheet = workbook.add_worksheet();
 
@@ -84,6 +213,6 @@ fn main() {
     println!("{}", u);
 
     let mut workbook = Workbook::new();
-    createWorksheetFromWorkbook(u, workbook);
+    create_worksheet_from_workbook(u, workbook);
 
 }
