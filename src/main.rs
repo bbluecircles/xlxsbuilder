@@ -62,6 +62,11 @@ struct WorkbookWrapper {
     filename: String
 }
 
+struct PreparedWorkSheetColumn {
+    index: usize,
+    format: Format
+}
+
 fn create_column_for_worksheet_from_configuration(
     worksheet: &Worksheet,
     column_configuration: &WorksheetColumnProperties,
@@ -111,6 +116,7 @@ fn prepare_worksheet_from_configuration(
         worksheet.protect_with_password(&password);
     }
 
+    // If column properties are found, we'll setup the headers here.
     if worksheet_column_properties.len() > 0 {
 
     }
