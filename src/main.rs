@@ -29,7 +29,8 @@ fn createWorksheetFromWorkbook(parsed_json: Value, mut workbook: Workbook) -> Re
             .set_border_bottom(FormatBorder::Medium)
             .set_background_color(Color::Theme(8, 4))
             .set_font_color(Color::Theme(0, 1))
-            .set_bold();
+            .set_bold()
+            .set_font_size(18);
 
         for (col_num, header) in headers.iter().enumerate() {
             println!("Header: {}", header);
