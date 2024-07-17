@@ -1,0 +1,183 @@
+{
+    "workbook_name": "my workbook",
+    "workbook_settings": {
+        "protection": {
+            "should_protect": false,
+            "password": ""
+        }
+    },
+    "worksheets": [
+        {
+            "worksheet_name": "Test Sheet",
+            "worksheet_properties": {},
+            "worksheet_column_properties": [
+                { 
+                    "col_name": "aliasname",
+                    "col_data_type": "string",
+                    "col_formats":{
+
+                    },
+                    "col_formula": "",
+                    "col_pattern": ""
+                },
+                { 
+                    "col_name": "dbname",
+                    "col_data_type": "string",
+                    "col_formats":{
+
+                    },
+                    "col_formula": "",
+                    "col_pattern": ""
+                },
+                { 
+                    "col_name": "tablename",
+                    "col_data_type": "string",
+                    "col_formats":{
+
+                    },
+                    "col_formula": "",
+                    "col_pattern": ""
+                },
+                { 
+                    "col_name": "linksfromtable",
+                    "col_data_type": "string",
+                    "col_formats":{
+
+                    },
+                    "col_formula": "",
+                    "col_pattern": ""
+                },
+                { 
+                    "col_name": "linksfromcolumn",
+                    "col_data_type": "string",
+                    "col_formats":{
+
+                    },
+                    "col_formula": "",
+                    "col_pattern": ""
+                },
+                { 
+                    "col_name": "linkswithcolumn",
+                    "col_data_type": "string",
+                    "col_formats":{
+
+                    },
+                    "col_formula": "",
+                    "col_pattern": ""
+                },
+                { 
+                    "col_name": "ccodes",
+                    "col_data_type": "string",
+                    "col_formats":{
+
+                    },
+                    "col_formula": "",
+                    "col_pattern": ""
+                },
+                { 
+                    "col_name": "cgnotin",
+                    "col_data_type": "string",
+                    "col_formats":{
+
+                    },
+                    "col_formula": "",
+                    "col_pattern": ""
+                },
+                { 
+                    "col_name": "cgnotinflag",
+                    "col_data_type": "number",
+                    "col_formats":{
+
+                    },
+                    "col_formula": "",
+                    "col_pattern": ""
+                },
+                { 
+                    "col_name": "cginflag",
+                    "col_data_type": "number",
+                    "col_formats":{
+
+                    },
+                    "col_formula": "",
+                    "col_pattern": ""
+                },                
+                { 
+                    "col_name": "cggroupflag",
+                    "col_data_type": "number",
+                    "col_formats":{
+
+                    },
+                    "col_formula": "",
+                    "col_pattern": ""
+                },
+                { 
+                    "col_name": "randname",
+                    "col_data_type": "string",
+                    "col_formats":{
+
+                    },
+                    "col_formula": "",
+                    "col_pattern": ""
+                }
+            ],
+            "worksheet_data": [
+                    {
+                    "aliasname": "diagnosis1",
+                    "dbname": "000_common",
+                    "tablename": "diagnosis",
+                    "linksfromtable": "pat_dt",
+                    "linksfromcolumn": "diagnosis_code",
+                    "linkswithcolumn": "diagnosis_code",
+                    "ccodes": "0",
+                    "cgnotin": "",
+                    "cgnotinflag": 0,
+                    "cginflag": 0,
+                    "cggroupflag": 0,
+                    "randname": ""
+                },
+                {
+                    "aliasname": "pat_dt",
+                    "dbname": "nv",
+                    "tablename": "pat_dt",
+                    "linksfromtable": "",
+                    "linksfromcolumn": null,
+                    "linkswithcolumn": null,
+                    "ccodes": "0",
+                    "cgnotin": "",
+                    "cgnotinflag": 0,
+                    "cginflag": 0,
+                    "cggroupflag": 0,
+                    "randname": ""
+                },
+                {
+                    "aliasname": "diagnosis_code1_0",
+                    "dbname": "tempdb",
+                    "tablename": "_cstdetails_all_diagnosis_code_jluna==call tsp_custom_category_detail(NULL,0,'diagnosis_code', 'jluna')",
+                    "linksfromtable": "pat_dt",
+                    "linksfromcolumn": "diagnosis_code",
+                    "linkswithcolumn": "input_value",
+                    "ccodes": "0",
+                    "cgnotin": "",
+                    "cgnotinflag": 0,
+                    "cginflag": 0,
+                    "cggroupflag": 0,
+                    "randname": ""
+                },
+                {
+                    "aliasname": "diagnosis_code1_0",
+                    "dbname": "tempdb",
+                    "tablename": "_cstdetails_all_diagnosis_code_36656936==call tsp_custom_category_detail_ccodes(NULL,0,'diagnosis_code', '36656936', 'Pccodes')",
+                    "linksfromtable": "pat_dt",
+                    "linksfromcolumn": "diagnosis_code",
+                    "linkswithcolumn": "input_value",
+                    "ccodes": "1401684,1393913",
+                    "cgnotin": "",
+                    "cgnotinflag": 0,
+                    "cginflag": 49,
+                    "cggroupflag": 0,
+                    "randname": "36656936"
+                }
+            ]
+        }
+    ]
+}
