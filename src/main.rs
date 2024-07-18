@@ -68,7 +68,7 @@ struct WorksheetConfiguration {
     worksheet_name: String,
     worksheet_properties: WorksheetSettings,
     worksheet_column_properties: Vec<WorksheetColumnProperties>,
-    worksheet_data: Vec<Value>
+    worksheet_data: Value
 }
 
 #[derive(Deserialize, Debug)]
@@ -78,11 +78,7 @@ struct WorkbookConfiguration {
     worksheets: Vec<WorksheetConfiguration>
 }
 
-struct WorkbookWrapper {
-    workbook: Workbook,
-    filename: String
-}
-
+#[derive(Debug)]
 struct PreparedWorkSheetColumn {
     index: u16,
     format: Format,
@@ -197,31 +193,76 @@ fn prepare_worksheet_from_configuration(
         worksheet.protect_with_password(&password);
     }
 
-    let worksheet_columns: Vec<PreparedWorkSheetColumn> = create_columns_for_worksheet_from_configuration(worksheet, worksheet_column_properties);
+    let mut worksheet_columns: Vec<PreparedWorkSheetColumn> = vec![];
 
     // If column properties are found, we'll setup the headers here.
     if worksheet_column_properties.len() > 0 {
+        worksheet_columns = create_columns_for_worksheet_from_configuration(worksheet, worksheet_column_properties);
+    }
+
+    // @Todo -> Handle case when worksheet_column_properties is empty (create headings from JSON keys)
+
+    // If worksheet_data is Array iterate through each object and insert as row
+    if let Value::Array(array) = worksheet_data {
+        let mut keys: HashSet<String> = HashSet::new();
+
+        if keys.len() != worksheet_columns.len() {
+            std::process::exit(1);
+        }
+
+        for item in array {
+            if let Value::Object(map) = item {
+                for key in map.keys() {
+                    keys.insert(key.clone());
+                }
+            }
+        }
+
+        let keys_to_vec: Vec<&String> = keys.iter().collect();
+
+        for (row_num, data_item) in array.iter().enumerate() {
+            if let Value::Object(map) = data_item {
+                for (data_item_col_index, data_item_key) in keys_to_vec.iter().enumerate() {
+                    if let Some(value) = map.get(*data_item_key) {
+                        match value {
+                            Value::String(s) => worksheet.write_string((row_num + 1) as u32, data_item_col_index as u16, s),
+                            Value::Number(n) => worksheet.write_number((row_num + 1) as u32, data_item_col_index as u16, n.as_f64().unwrap()),
+                            Value::Bool(b) => worksheet.write_boolean((row_num + 1) as u32, data_item_col_index as u16, *b),
+                            Value::Null => worksheet.write_string((row_num + 1) as u32, data_item_col_index as u16, ""),
+                            Value::Object(o) => worksheet.write_string((row_num + 1) as u32, data_item_col_index as u16, ""),
+                            Value::Array(a) => worksheet.write_string((row_num + 1) as u32, data_item_col_index as u16, "")
+                        };
+                    }
+                }
+            }
+        }
+
+        // Auto fit the worksheet
+        worksheet.autofit();
 
     }
 
-
-
 }
 
-fn create_workbook_from_json(json_string: &str) -> Result<WorkbookWrapper, Error>
+fn create_workbook_from_json(json_string: &str) -> Result<(), XlsxError>
 {
     let workbook_configuration: WorkbookConfiguration = serde_json::from_str(json_string).unwrap_or_else(|e| {
         println!("Failed to deserialize JSON: {}", e);
         std::process::exit(1);
     });
 
-    let new_workbook = Workbook::new();
+    let mut new_workbook = Workbook::new();
 
     let WorkbookConfigurationSettings { protection } = workbook_configuration.workbook_settings;
 
     let worksheet_configurations: Vec<WorksheetConfiguration> = workbook_configuration.worksheets;
 
-    worksheet_configurations.iter().for_each(|worksheet_configuration| prepare_worksheet_from_configuration(&mut new_workbook, worksheet_configuration, protection));
+    worksheet_configurations.iter().for_each(|worksheet_configuration| prepare_worksheet_from_configuration(&mut new_workbook, worksheet_configuration, &protection));
+
+    // Save new workbook
+    new_workbook.save("output.xlsx");
+
+    Ok(())
 }
 
 
