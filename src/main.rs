@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, HashSet}, error::Error, fs::File,  io::{BufReader, Read}, path::Path, ptr::null};
+use std::{collections::{HashMap, HashSet}, error::Error, fs::{self, File},  io::{BufReader, Read}, path::Path, ptr::null};
 
 use rust_xlsxwriter::*;
 
@@ -324,25 +324,21 @@ fn create_worksheet_from_workbook(parsed_json: Value, mut workbook: Workbook) ->
 }
 
 
-fn read_json_from_file(filename: &str) -> Result<Value, Box<dyn Error>> {
+fn read_json_from_file(filename: &str) -> Result<String, Box<dyn Error>> {
     println!("Filename: {}", filename);
     let json_path = Path::new(filename);
 
-    let file = File::open(&json_path)?;
-    let reader = BufReader::new(file);
+    let json_string = fs::read_to_string(json_path)?;
 
-    let u = serde_json::from_reader(reader)?;
+    println!("Json Content:\n{}", json_string);
 
-    Ok(u)
+    Ok(json_string)
 }
 
 fn main() {
     let filename = "test.json";
-    let u = read_json_from_file(filename).unwrap();
-    
-    println!("{}", u);
+    let json_string = read_json_from_file(&filename).unwrap();
 
-    let mut workbook = Workbook::new();
-    create_worksheet_from_workbook(u, workbook);
+    let _ = create_workbook_from_json(&json_string);
 
 }
