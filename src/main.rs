@@ -19,10 +19,31 @@ struct WorkbookConfigurationSettings {
 #[derive(Deserialize, Debug)]
 enum WorkSheetColumnDataType {
     String,
-    Number,
-    Date,
-    Chart
+    Number
 }
+
+impl WorkSheetColumnDataType {
+    fn new_string() -> Self {
+        WorkSheetColumnDataType::String
+    }
+    fn new_number() -> Self {
+        WorkSheetColumnDataType::Number
+    }
+}
+
+impl Clone for WorkSheetColumnDataType {
+    fn clone(&self) -> Self {
+        match self {
+            WorkSheetColumnDataType::String => {
+                WorkSheetColumnDataType::String 
+            }
+            WorkSheetColumnDataType::Number => {
+                WorkSheetColumnDataType::Number
+            }
+        }
+    }
+}
+
 #[derive(Deserialize, Debug)]
 enum WorkSheetColumnFormats {
 
@@ -63,15 +84,59 @@ struct WorkbookWrapper {
 }
 
 struct PreparedWorkSheetColumn {
-    index: usize,
-    format: Format
+    index: u16,
+    format: Format,
+    data_type: WorkSheetColumnDataType
+}
+
+impl PreparedWorkSheetColumn {
+    fn new(index: u16, format: &Format, data_type: WorkSheetColumnDataType) -> Self {
+        PreparedWorkSheetColumn { index, format: format.clone(), data_type }
+    }
+}
+
+impl Clone for PreparedWorkSheetColumn {
+    fn clone(&self) -> Self {
+        PreparedWorkSheetColumn {
+            index: self.index,
+            format: self.format.clone(),
+            data_type: self.data_type.clone()
+        }
+    }
+}
+
+
+fn insert_value_into_cell(row_index: u32, col_index: u16, worksheet: &mut Worksheet, value: &Value, format: &Format) {
+    match value {
+        Value::String(s) => worksheet.write_string_with_format(row_index as u32, col_index as u16, s, format),
+        Value::Number(n) => worksheet.write_number_with_format(row_index as u32, col_index as u16, n.as_f64().unwrap(), format),
+        Value::Bool(b) => worksheet.write_boolean_with_format(row_index as u32, col_index as u16, *b, format),
+        Value::Null => worksheet.write_string_with_format(row_index as u32, col_index as u16, "", format),
+        Value::Object(o) => worksheet.write_string_with_format(row_index as u32, col_index as u16, "", format),
+        Value::Array(a) => worksheet.write_string_with_format(row_index as u32, col_index as u16, "", format)
+    };
+}
+
+
+fn insert_cell_to_worksheet(
+    row_index: u32, 
+    col_index: u16, 
+    worksheet: &mut Worksheet,
+    data_type: &WorkSheetColumnDataType,
+    value: &Value,
+    format: &Format
+) {
+    match data_type {
+        WorkSheetColumnDataType::String => insert_value_into_cell(row_index, col_index, worksheet, value, format),
+        WorkSheetColumnDataType::Number => insert_value_into_cell(row_index, col_index, worksheet, value, format)
+    };
 }
 
 fn create_column_for_worksheet_from_configuration(
-    worksheet: &Worksheet,
+    worksheet: &mut Worksheet,
     column_configuration: &WorksheetColumnProperties,
-    column_index: usize
-) {
+    column_index: u16
+) -> PreparedWorkSheetColumn {
     let WorksheetColumnProperties {
         col_name,
         col_data_type,
@@ -80,16 +145,32 @@ fn create_column_for_worksheet_from_configuration(
         col_pattern
     } = column_configuration;
 
+    let name_to_value = Value::String(col_name.clone());
 
+    let header_format = Format::new()
+        .set_border_bottom(FormatBorder::Medium)
+        .set_background_color(Color::Theme(8, 4))
+        .set_font_color(Color::Theme(0, 1))
+        .set_bold()
+        .set_font_size(18);
+
+    insert_cell_to_worksheet(0, column_index, worksheet, col_data_type, &name_to_value, &header_format);
+
+    PreparedWorkSheetColumn::new(column_index, &header_format, col_data_type.clone())
 }
 
 fn create_columns_for_worksheet_from_configuration(
-    worksheet: &Worksheet, 
+    worksheet: &mut Worksheet, 
     column_configurations: &Vec<WorksheetColumnProperties>
-) {
-    for (index, column_configuration) in column_configurations.iter().enumerate() {
-        create_column_for_worksheet_from_configuration(worksheet, column_configuration, index)
-    }
+) -> Vec<PreparedWorkSheetColumn> {
+    column_configurations.into_iter()
+        .enumerate()
+        .map(|(index, column_properies)| create_column_for_worksheet_from_configuration(
+            worksheet,
+            column_properies,
+            index as u16
+        ))
+        .collect()
 }
 
 fn prepare_worksheet_from_configuration(
@@ -115,6 +196,8 @@ fn prepare_worksheet_from_configuration(
     if *should_protect {
         worksheet.protect_with_password(&password);
     }
+
+    let worksheet_columns: Vec<PreparedWorkSheetColumn> = create_columns_for_worksheet_from_configuration(worksheet, worksheet_column_properties);
 
     // If column properties are found, we'll setup the headers here.
     if worksheet_column_properties.len() > 0 {
