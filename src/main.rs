@@ -150,12 +150,12 @@ fn create_column_for_worksheet_from_configuration(
 
     let header_format = Format::new()
         .set_border_bottom(FormatBorder::Medium)
-        .set_background_color(Color::Theme(8, 4))
+        .set_background_color(Color::Theme(1, 3))
         .set_font_color(Color::Theme(0, 1))
         .set_bold()
-        .set_font_size(16);
+        .set_font_size(12);
 
-    insert_cell_to_worksheet(0, column_index, worksheet, col_data_type, &name_to_value, &header_format);
+    insert_cell_to_worksheet(1, column_index, worksheet, col_data_type, &name_to_value, &header_format);
 
     PreparedWorkSheetColumn::new(column_index, &header_format, col_data_type.clone())
 }
@@ -178,7 +178,7 @@ fn prepare_worksheet_from_configuration(
     workbook: &mut Workbook, 
     worksheet_configuration: &WorksheetConfiguration, 
     workbook_protection_settings: &WorkbookProtectionSettings
-) {
+) -> Result<(), XlsxError> {
     let WorksheetConfiguration { 
         worksheet_name,
         worksheet_properties,
@@ -198,12 +198,16 @@ fn prepare_worksheet_from_configuration(
         worksheet.protect_with_password(&password);
     }
 
+
     let mut worksheet_columns: Vec<PreparedWorkSheetColumn> = vec![];
 
     // If column properties are found, we'll setup the headers here.
     if worksheet_column_properties.len() > 0 {
         worksheet_columns = create_columns_for_worksheet_from_configuration(worksheet, worksheet_column_properties);
     }
+
+    // Freeze the top row only.
+    worksheet.set_freeze_panes(1, 0)?;
 
     // @Todo -> Handle case when worksheet_column_properties is empty (create headings from JSON keys)
 
@@ -225,17 +229,42 @@ fn prepare_worksheet_from_configuration(
 
         let keys_to_vec: Vec<&String> = keys.iter().collect();
 
+        let title = "Sample Title";
+        let worksheet_watermark = Image::new("logo.png")?;
+    
+        worksheet.set_row_height_pixels(0, 32)?;
+
+        // Create format for the first row
+        let heading_format = Format::new().set_align(FormatAlign::Right);
+
+        // Merge all columns in the first row
+        worksheet.merge_range(0, 0, 0, (keys_to_vec.len() - 1 as usize).try_into().unwrap(), "", &heading_format)?;
+        
+        // Format for sheet title
+        let title_format = Format::new()
+            .set_align(FormatAlign::VerticalCenter)
+            .set_align(FormatAlign::Left);
+
+        worksheet.write_string_with_format(0, 0, title, &title_format)?;
+
+        // Create format for the image
+        let image_format = Format::new()
+            .set_align(FormatAlign::VerticalCenter)
+            .set_align(FormatAlign::Right);
+
+        worksheet.embed_image_with_format(0, 0, &worksheet_watermark, &image_format)?;
+
         for (row_num, data_item) in array.iter().enumerate() {
             if let Value::Object(map) = data_item {
                 for (data_item_col_index, data_item_key) in keys_to_vec.iter().enumerate() {
                     if let Some(value) = map.get(*data_item_key) {
                         match value {
-                            Value::String(s) => worksheet.write_string((row_num + 1) as u32, data_item_col_index as u16, s),
-                            Value::Number(n) => worksheet.write_number((row_num + 1) as u32, data_item_col_index as u16, n.as_f64().unwrap()),
-                            Value::Bool(b) => worksheet.write_boolean((row_num + 1) as u32, data_item_col_index as u16, *b),
-                            Value::Null => worksheet.write_string((row_num + 1) as u32, data_item_col_index as u16, ""),
-                            Value::Object(o) => worksheet.write_string((row_num + 1) as u32, data_item_col_index as u16, ""),
-                            Value::Array(a) => worksheet.write_string((row_num + 1) as u32, data_item_col_index as u16, "")
+                            Value::String(s) => worksheet.write_string((row_num + 2) as u32, data_item_col_index as u16, s),
+                            Value::Number(n) => worksheet.write_number((row_num + 2) as u32, data_item_col_index as u16, n.as_f64().unwrap()),
+                            Value::Bool(b) => worksheet.write_boolean((row_num + 2) as u32, data_item_col_index as u16, *b),
+                            Value::Null => worksheet.write_string((row_num + 2) as u32, data_item_col_index as u16, ""),
+                            Value::Object(o) => worksheet.write_string((row_num + 2) as u32, data_item_col_index as u16, ""),
+                            Value::Array(a) => worksheet.write_string((row_num + 2) as u32, data_item_col_index as u16, "")
                         };
                     }
                 }
@@ -245,8 +274,10 @@ fn prepare_worksheet_from_configuration(
         // Auto fit the worksheet
         worksheet.autofit();
 
-    }
 
+    }
+    
+    Ok(())
 }
 
 fn create_workbook_from_json(json_string: &str) -> Result<(), XlsxError>
@@ -262,7 +293,7 @@ fn create_workbook_from_json(json_string: &str) -> Result<(), XlsxError>
 
     let worksheet_configurations: Vec<WorksheetConfiguration> = workbook_configuration.worksheets;
 
-    worksheet_configurations.iter().for_each(|worksheet_configuration| prepare_worksheet_from_configuration(&mut new_workbook, worksheet_configuration, &protection));
+    worksheet_configurations.iter().for_each(|worksheet_configuration| prepare_worksheet_from_configuration(&mut new_workbook, worksheet_configuration, &protection).unwrap());
 
     // Save new workbook
     new_workbook.save("output.xlsx");
@@ -276,8 +307,6 @@ fn read_json_from_file(filename: &str) -> Result<String, Box<dyn Error>> {
     let json_path = Path::new(filename);
 
     let json_string = fs::read_to_string(json_path)?;
-
-    println!("Json Content:\n{}", json_string);
 
     Ok(json_string)
 }

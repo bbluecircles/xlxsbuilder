@@ -2,8 +2,8 @@
     "workbook_name": "my workbook",
     "workbook_settings": {
         "protection": {
-            "should_protect": true,
-            "password": "forget2023"
+            "should_protect": false,
+            "password": ""
         }
     },
     "worksheets": [
