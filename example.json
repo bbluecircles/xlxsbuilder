@@ -2,8 +2,8 @@
     "workbook_name": "my workbook",
     "workbook_settings": {
         "protection": {
-            "should_protect": false,
-            "password": ""
+            "should_protect": true,
+            "password": "forget2023"
         }
     },
     "worksheets": [
@@ -14,108 +14,72 @@
                 { 
                     "col_name": "aliasname",
                     "col_data_type": "string",
-                    "col_formats":{
-
-                    },
                     "col_formula": "",
                     "col_pattern": ""
                 },
                 { 
                     "col_name": "dbname",
                     "col_data_type": "string",
-                    "col_formats":{
-
-                    },
                     "col_formula": "",
                     "col_pattern": ""
                 },
                 { 
                     "col_name": "tablename",
                     "col_data_type": "string",
-                    "col_formats":{
-
-                    },
                     "col_formula": "",
                     "col_pattern": ""
                 },
                 { 
                     "col_name": "linksfromtable",
                     "col_data_type": "string",
-                    "col_formats":{
-
-                    },
                     "col_formula": "",
                     "col_pattern": ""
                 },
                 { 
                     "col_name": "linksfromcolumn",
                     "col_data_type": "string",
-                    "col_formats":{
-
-                    },
                     "col_formula": "",
                     "col_pattern": ""
                 },
                 { 
                     "col_name": "linkswithcolumn",
                     "col_data_type": "string",
-                    "col_formats":{
-
-                    },
                     "col_formula": "",
                     "col_pattern": ""
                 },
                 { 
                     "col_name": "ccodes",
                     "col_data_type": "string",
-                    "col_formats":{
-
-                    },
                     "col_formula": "",
                     "col_pattern": ""
                 },
                 { 
                     "col_name": "cgnotin",
                     "col_data_type": "string",
-                    "col_formats":{
-
-                    },
                     "col_formula": "",
                     "col_pattern": ""
                 },
                 { 
                     "col_name": "cgnotinflag",
                     "col_data_type": "number",
-                    "col_formats":{
-
-                    },
                     "col_formula": "",
                     "col_pattern": ""
                 },
                 { 
                     "col_name": "cginflag",
                     "col_data_type": "number",
-                    "col_formats":{
-
-                    },
                     "col_formula": "",
                     "col_pattern": ""
                 },                
                 { 
                     "col_name": "cggroupflag",
                     "col_data_type": "number",
-                    "col_formats":{
-
-                    },
                     "col_formula": "",
                     "col_pattern": ""
                 },
                 { 
                     "col_name": "randname",
                     "col_data_type": "string",
-                    "col_formats":{
-
-                    },
                     "col_formula": "",
                     "col_pattern": ""
                 }

@@ -17,6 +17,7 @@ struct WorkbookConfigurationSettings {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(rename_all = "lowercase")]
 enum WorkSheetColumnDataType {
     String,
     Number
@@ -45,6 +46,12 @@ impl Clone for WorkSheetColumnDataType {
 }
 
 #[derive(Deserialize, Debug)]
+struct WorksheetColumn {
+    #[serde(rename = "col_data_type")]
+    column_type: WorkSheetColumnDataType
+}
+
+#[derive(Deserialize, Debug)]
 enum WorkSheetColumnFormats {
 
 }
@@ -58,7 +65,6 @@ struct WorksheetSettings {
 struct WorksheetColumnProperties {
     col_name: String,
     col_data_type: WorkSheetColumnDataType,
-    col_formats: WorkSheetColumnFormats,
     col_formula: String,
     col_pattern: String
 }
@@ -136,7 +142,6 @@ fn create_column_for_worksheet_from_configuration(
     let WorksheetColumnProperties {
         col_name,
         col_data_type,
-        col_formats,
         col_formula,
         col_pattern
     } = column_configuration;
@@ -148,7 +153,7 @@ fn create_column_for_worksheet_from_configuration(
         .set_background_color(Color::Theme(8, 4))
         .set_font_color(Color::Theme(0, 1))
         .set_bold()
-        .set_font_size(18);
+        .set_font_size(16);
 
     insert_cell_to_worksheet(0, column_index, worksheet, col_data_type, &name_to_value, &header_format);
 
@@ -206,9 +211,9 @@ fn prepare_worksheet_from_configuration(
     if let Value::Array(array) = worksheet_data {
         let mut keys: HashSet<String> = HashSet::new();
 
-        if keys.len() != worksheet_columns.len() {
-            std::process::exit(1);
-        }
+        // if keys.len() != worksheet_columns.len() {
+        //     std::process::exit(1);
+        // }
 
         for item in array {
             if let Value::Object(map) = item {
@@ -266,64 +271,6 @@ fn create_workbook_from_json(json_string: &str) -> Result<(), XlsxError>
 }
 
 
-fn create_worksheet_from_workbook(parsed_json: Value, mut workbook: Workbook) -> Result<(), XlsxError>
-{
-    let worksheet = workbook.add_worksheet();
-
-    if let Value::Array(array) = parsed_json {
-        let mut keys: HashSet<String> = HashSet::new();
-
-        for item in &array {
-            if let Value::Object(map) = item {
-                for key in map.keys() {
-                    keys.insert(key.clone());
-                }
-            }
-        }
-        
-        let mut headers: Vec<&String> = keys.iter().collect();
-        headers.sort();
-
-        let heading_format = Format::new()
-            .set_border_bottom(FormatBorder::Medium)
-            .set_background_color(Color::Theme(8, 4))
-            .set_font_color(Color::Theme(0, 1))
-            .set_bold()
-            .set_font_size(18);
-
-        for (col_num, header) in headers.iter().enumerate() {
-            println!("Header: {}", header);
-            worksheet.write_string_with_format(0, col_num as u16, header.to_owned(), &heading_format)?;
-        }
-
-
-        for (row_num, item) in array.iter().enumerate() {
-            if let Value::Object(map) = item {
-                for (col_num, header) in headers.iter().enumerate() {
-                    if let Some(value) = map.get(*header) {
-                        match value {
-                            Value::String(s) => worksheet.write_string((row_num + 1) as u32, col_num as u16, s)?,
-                            Value::Number(n) => worksheet.write_number((row_num + 1) as u32, col_num as u16, n.as_f64().unwrap())?,
-                            Value::Bool(b) => worksheet.write_boolean((row_num + 1) as u32, col_num as u16, *b)?,
-                            Value::Null => worksheet.write_string((row_num + 1) as u32, col_num as u16, "")?,
-                            Value::Object(o) => worksheet.write_string((row_num + 1) as u32, col_num as u16, "")?,
-                            Value::Array(a) => worksheet.write_string((row_num + 1) as u32, col_num as u16, "")?
-                        };
-                    }
-                }
-            }
-        }
-
-        // Auto fit the sheet 
-        worksheet.autofit();
-    }
-
-    workbook.save("output.xlsx")?;
-
-    Ok(())
-}
-
-
 fn read_json_from_file(filename: &str) -> Result<String, Box<dyn Error>> {
     println!("Filename: {}", filename);
     let json_path = Path::new(filename);
@@ -336,7 +283,7 @@ fn read_json_from_file(filename: &str) -> Result<String, Box<dyn Error>> {
 }
 
 fn main() {
-    let filename = "test.json";
+    let filename = "example.json";
     let json_string = read_json_from_file(&filename).unwrap();
 
     let _ = create_workbook_from_json(&json_string);
