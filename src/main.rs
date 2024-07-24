@@ -230,12 +230,12 @@ fn prepare_worksheet_from_configuration(
         let keys_to_vec: Vec<&String> = keys.iter().collect();
 
         let title = "Sample Title";
-        let worksheet_watermark = Image::new("logo.png")?;
-    
+
         worksheet.set_row_height_pixels(0, 32)?;
+        worksheet.set_row_height_pixels(1, 24)?;
 
         // Create format for the first row
-        let heading_format = Format::new().set_align(FormatAlign::Right);
+        let heading_format = Format::new().set_align(FormatAlign::Center);
 
         // Merge all columns in the first row
         worksheet.merge_range(0, 0, 0, (keys_to_vec.len() - 1 as usize).try_into().unwrap(), "", &heading_format)?;
@@ -243,16 +243,12 @@ fn prepare_worksheet_from_configuration(
         // Format for sheet title
         let title_format = Format::new()
             .set_align(FormatAlign::VerticalCenter)
-            .set_align(FormatAlign::Left);
+            .set_align(FormatAlign::Center)
+            .set_font_size(14);
+
 
         worksheet.write_string_with_format(0, 0, title, &title_format)?;
 
-        // Create format for the image
-        let image_format = Format::new()
-            .set_align(FormatAlign::VerticalCenter)
-            .set_align(FormatAlign::Right);
-
-        worksheet.embed_image_with_format(0, 0, &worksheet_watermark, &image_format)?;
 
         for (row_num, data_item) in array.iter().enumerate() {
             if let Value::Object(map) = data_item {
