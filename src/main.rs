@@ -1,300 +1,152 @@
-use std::{collections::{HashMap, HashSet}, error::Error, fs::{self, File},  io::{BufReader, Read}, path::Path, ptr::null};
+use std::{collections::{HashMap, HashSet}, error::Error, ffi::{CStr, CString}, fs::{self, File}, io::{BufReader, Read}, os::raw::{c_char, c_void}, path::Path, ptr::null};
 
 use rust_xlsxwriter::*;
+use chrono::NaiveDate;
 
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use serde_json::{Value, json, from_str};
 mod modules;
 
 #[derive(Deserialize, Debug)]
-struct WorkbookProtectionSettings {
-    should_protect: bool,
-    password: String
-}
-#[derive(Deserialize, Debug)]
-struct WorkbookConfigurationSettings {
-    protection: WorkbookProtectionSettings
+struct Variables {
+    format: String,
+    value: String
 }
 
 #[derive(Deserialize, Debug)]
-#[serde(rename_all = "lowercase")]
-enum WorkSheetColumnDataType {
-    String,
-    Number
-}
-
-impl WorkSheetColumnDataType {
-    fn new_string() -> Self {
-        WorkSheetColumnDataType::String
-    }
-    fn new_number() -> Self {
-        WorkSheetColumnDataType::Number
-    }
-}
-
-impl Clone for WorkSheetColumnDataType {
-    fn clone(&self) -> Self {
-        match self {
-            WorkSheetColumnDataType::String => {
-                WorkSheetColumnDataType::String 
-            }
-            WorkSheetColumnDataType::Number => {
-                WorkSheetColumnDataType::Number
-            }
-        }
-    }
+struct JsonTable {
+    table_name: String,
+    variables: Vec<Variables>,
+    headers: Vec<String>,
+    data: Vec<Vec<f64>>,
+    columns: u16,
+    rows: u32
 }
 
 #[derive(Deserialize, Debug)]
-struct WorksheetColumn {
-    #[serde(rename = "col_data_type")]
-    column_type: WorkSheetColumnDataType
+struct Tables {
+    tables: Vec<JsonTable>
 }
 
-#[derive(Deserialize, Debug)]
-enum WorkSheetColumnFormats {
-
+enum CellDataType {
+    Number(f64),
+    Date(NaiveDate),
+    String(String)
 }
 
-#[derive(Deserialize, Debug)]
-struct WorksheetSettings {
+// fn determine_data_type(s: &str) -> Result<(CellDataType, Option<Format>), XlsxError> {
+//     let s = s.trim();
 
-}
+//     if s.contains('$') {
+//         // Remove '$' and commas, then try to parse as a number.
+//         let s_clean = s.replace('$', "").replace(",", "").trim();
+//         if let Ok(value) = s_clean.parse::<f64>() {
+//             let mut currency_format = Format::new();
+//             currency_format.set_num_format("$#,##0.00");
+//             return Ok((CellDataType::Number(value), Some(currency_format)));
+//         }
+//     }
 
-#[derive(Deserialize, Debug)]
-struct WorksheetColumnProperties {
-    col_name: String,
-    col_data_type: WorkSheetColumnDataType,
-    col_formula: String,
-    col_pattern: String
-}
+//     if s.ends_with('%') {
+//         let s_clean = s.trim_end_matches('%').replace(",", "").trim();
+//         if let Ok(value) = s_clean.parse::<f64>() {
+//             let mut percent_format = Format::new();
+//             percent_format.set_num_format("0.00%");
+//             return Ok((CellDataType::Number(value / 100.00), Some(percent_format)));
+//         }
+//     }
 
-#[derive(Deserialize, Debug)]
-struct WorksheetConfiguration {
-    worksheet_name: String,
-    worksheet_properties: WorksheetSettings,
-    worksheet_column_properties: Vec<WorksheetColumnProperties>,
-    worksheet_data: Value
-}
+//     if let Ok(date) = NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+//         let mut date_format = Format::new();
+//         date_format.set_num_format("yyyy-mm-dd");
+//         return Ok((CellDataType::Date(date), Some(date_format)));
+//     }
 
-#[derive(Deserialize, Debug)]
-struct WorkbookConfiguration {
-    workbook_name: String,
-    workbook_settings: WorkbookConfigurationSettings,
-    worksheets: Vec<WorksheetConfiguration>
-}
+//     if let Ok(value) = s.replace(",", "").parse::<f64>() {
+//         return Ok((CellDataType::Number(value), None));
+//     }
 
-#[derive(Debug)]
-struct PreparedWorkSheetColumn {
-    index: u16,
-    format: Format,
-    data_type: WorkSheetColumnDataType
-}
+//     Ok((CellDataType::String(s.to_string()), None))
+// }
 
-impl PreparedWorkSheetColumn {
-    fn new(index: u16, format: &Format, data_type: WorkSheetColumnDataType) -> Self {
-        PreparedWorkSheetColumn { index, format: format.clone(), data_type }
-    }
-}
+fn create_table(table_info: &JsonTable, worksheet: & mut Worksheet, col_start: u16, row_start: u32) {
+    let columns: Vec<String> = table_info.headers.clone();
 
-impl Clone for PreparedWorkSheetColumn {
-    fn clone(&self) -> Self {
-        PreparedWorkSheetColumn {
-            index: self.index,
-            format: self.format.clone(),
-            data_type: self.data_type.clone()
-        }
-    }
-}
+    let _ = worksheet.write_column(row_start + 1, col_start, columns);
+    let _ = worksheet.write_row_matrix(row_start + 1, col_start + 1, table_info.data.clone());
 
+    // Create column headers
+    let heading_columns_to_table_column_headers: Vec<TableColumn> = table_info.variables.iter().map(|ti| TableColumn::new().set_header(ti.value.clone()).set_format(Format::new().set_num_format(ti.format.clone())).set_total_function(TableFunction::Sum)).collect();
 
-fn insert_value_into_cell(row_index: u32, col_index: u16, worksheet: &mut Worksheet, value: &Value, format: &Format) {
-    match value {
-        Value::String(s) => worksheet.write_string_with_format(row_index as u32, col_index as u16, s, format),
-        Value::Number(n) => worksheet.write_number_with_format(row_index as u32, col_index as u16, n.as_f64().unwrap(), format),
-        Value::Bool(b) => worksheet.write_boolean_with_format(row_index as u32, col_index as u16, *b, format),
-        Value::Null => worksheet.write_string_with_format(row_index as u32, col_index as u16, "", format),
-        Value::Object(o) => worksheet.write_string_with_format(row_index as u32, col_index as u16, "", format),
-        Value::Array(a) => worksheet.write_string_with_format(row_index as u32, col_index as u16, "", format)
-    };
-}
+    // Create a new table and set heading columns
+    let table = Table::new()
+        .set_style(TableStyle::Medium27)
+        .set_columns(&heading_columns_to_table_column_headers)
+        .set_total_row(true);
+
+    let table_cell_height = (row_start + table_info.rows) - 1;
+    let table_cell_width = (col_start + table_info.columns) - 1;
 
 
-fn insert_cell_to_worksheet(
-    row_index: u32, 
-    col_index: u16, 
-    worksheet: &mut Worksheet,
-    data_type: &WorkSheetColumnDataType,
-    value: &Value,
-    format: &Format
-) {
-    match data_type {
-        WorkSheetColumnDataType::String => insert_value_into_cell(row_index, col_index, worksheet, value, format),
-        WorkSheetColumnDataType::Number => insert_value_into_cell(row_index, col_index, worksheet, value, format)
-    };
-}
+    // Add the table to the worksheet
+    let _ = worksheet.add_table(row_start, col_start, table_cell_height, table_cell_width, &table);
 
-fn create_column_for_worksheet_from_configuration(
-    worksheet: &mut Worksheet,
-    column_configuration: &WorksheetColumnProperties,
-    column_index: u16
-) -> PreparedWorkSheetColumn {
-    let WorksheetColumnProperties {
-        col_name,
-        col_data_type,
-        col_formula,
-        col_pattern
-    } = column_configuration;
+    // Resize columns based on content
+    for (i, header) in table_info.variables.iter().enumerate() {
+        let col = col_start + i as u16;
+        let mut max_length = header.value.len();
 
-    let name_to_value = Value::String(col_name.clone());
-
-    let header_format = Format::new()
-        .set_border_bottom(FormatBorder::Medium)
-        .set_background_color(Color::Theme(1, 3))
-        .set_font_color(Color::Theme(0, 1))
-        .set_bold()
-        .set_font_size(12);
-
-    insert_cell_to_worksheet(1, column_index, worksheet, col_data_type, &name_to_value, &header_format);
-
-    PreparedWorkSheetColumn::new(column_index, &header_format, col_data_type.clone())
-}
-
-fn create_columns_for_worksheet_from_configuration(
-    worksheet: &mut Worksheet, 
-    column_configurations: &Vec<WorksheetColumnProperties>
-) -> Vec<PreparedWorkSheetColumn> {
-    column_configurations.into_iter()
-        .enumerate()
-        .map(|(index, column_properies)| create_column_for_worksheet_from_configuration(
-            worksheet,
-            column_properies,
-            index as u16
-        ))
-        .collect()
-}
-
-fn prepare_worksheet_from_configuration(
-    workbook: &mut Workbook, 
-    worksheet_configuration: &WorksheetConfiguration, 
-    workbook_protection_settings: &WorkbookProtectionSettings
-) -> Result<(), XlsxError> {
-    let WorksheetConfiguration { 
-        worksheet_name,
-        worksheet_properties,
-        worksheet_column_properties, 
-        worksheet_data 
-    } = worksheet_configuration;
-
-    let WorkbookProtectionSettings { should_protect, password } = workbook_protection_settings;
-
-    let worksheet= workbook.add_worksheet();
-
-    // Set the name
-    worksheet.set_name(worksheet_name);
-    
-    // If a password protection enabled, set it.
-    if *should_protect {
-        worksheet.protect_with_password(&password);
-    }
-
-
-    let mut worksheet_columns: Vec<PreparedWorkSheetColumn> = vec![];
-
-    // If column properties are found, we'll setup the headers here.
-    if worksheet_column_properties.len() > 0 {
-        worksheet_columns = create_columns_for_worksheet_from_configuration(worksheet, worksheet_column_properties);
-    }
-
-    // Freeze the top row only.
-    worksheet.set_freeze_panes(1, 0)?;
-
-    // @Todo -> Handle case when worksheet_column_properties is empty (create headings from JSON keys)
-
-    // If worksheet_data is Array iterate through each object and insert as row
-    if let Value::Array(array) = worksheet_data {
-        let mut keys: HashSet<String> = HashSet::new();
-
-        // if keys.len() != worksheet_columns.len() {
-        //     std::process::exit(1);
-        // }
-
-        for item in array {
-            if let Value::Object(map) = item {
-                for key in map.keys() {
-                    keys.insert(key.clone());
+        // Check the length of each data item in the column
+        for row in &table_info.data {
+            for  cell in row {
+                let cell_length = format!("{:?}", cell).len(); 
+                if cell_length > max_length {
+                    max_length = cell_length;
                 }
             }
         }
 
-        let keys_to_vec: Vec<&String> = keys.iter().collect();
+        // Set the column width based on the max_length (with adjusted scaling factor)
+        let width = (max_length as f64 + 2.8) * 1.2;
+        let _ = worksheet.set_column_width(col, width);
+    }
+}
 
-        let title = "Sample Title";
+fn create_new_workbook(config: Tables) /*-> Result<Vec<u8>, Box<dyn Error>>*/ {
+    let mut workbook = Workbook::new();
+    let mut worksheet = workbook.add_worksheet();
 
-        worksheet.set_row_height_pixels(0, 32)?;
-        worksheet.set_row_height_pixels(1, 24)?;
+    const MAX_COLUMNS: u16 = 10;
+    const TABLE_GAP: u16 = 3;
 
-        // Create format for the first row
-        let heading_format = Format::new().set_align(FormatAlign::Center);
-
-        // Merge all columns in the first row
-        worksheet.merge_range(0, 0, 0, (keys_to_vec.len() - 1 as usize).try_into().unwrap(), "", &heading_format)?;
-        
-        // Format for sheet title
-        let title_format = Format::new()
-            .set_align(FormatAlign::VerticalCenter)
-            .set_align(FormatAlign::Center)
-            .set_font_size(14);
+    let mut col_start: u16 = 0;
+    let mut row_start: u32 = 0;
+    let mut max_table_height: u32 = 0;
 
 
-        worksheet.write_string_with_format(0, 0, title, &title_format)?;
+    for (index, table_config) in config.tables.into_iter().enumerate() {
+        let table_width = table_config.columns as u16;
+        let table_height = table_config.rows as u32 + 2;
 
-
-        for (row_num, data_item) in array.iter().enumerate() {
-            if let Value::Object(map) = data_item {
-                for (data_item_col_index, data_item_key) in keys_to_vec.iter().enumerate() {
-                    if let Some(value) = map.get(*data_item_key) {
-                        match value {
-                            Value::String(s) => worksheet.write_string((row_num + 2) as u32, data_item_col_index as u16, s),
-                            Value::Number(n) => worksheet.write_number((row_num + 2) as u32, data_item_col_index as u16, n.as_f64().unwrap()),
-                            Value::Bool(b) => worksheet.write_boolean((row_num + 2) as u32, data_item_col_index as u16, *b),
-                            Value::Null => worksheet.write_string((row_num + 2) as u32, data_item_col_index as u16, ""),
-                            Value::Object(o) => worksheet.write_string((row_num + 2) as u32, data_item_col_index as u16, ""),
-                            Value::Array(a) => worksheet.write_string((row_num + 2) as u32, data_item_col_index as u16, "")
-                        };
-                    }
-                }
+        if col_start + table_width > MAX_COLUMNS {
+            col_start = 0;
+            row_start += max_table_height + 2;
+            max_table_height = table_height;
+        } else {
+            if table_height > max_table_height {
+                max_table_height = table_height;
             }
         }
 
-        // Auto fit the worksheet
-        worksheet.autofit();
+        create_table(&table_config, &mut worksheet, col_start, row_start);
 
-
+        // Move col_start for the next able
+        col_start += table_width + TABLE_GAP;
     }
-    
-    Ok(())
-}
-
-fn create_workbook_from_json(json_string: &str) -> Result<(), XlsxError>
-{
-    let workbook_configuration: WorkbookConfiguration = serde_json::from_str(json_string).unwrap_or_else(|e| {
-        println!("Failed to deserialize JSON: {}", e);
-        std::process::exit(1);
-    });
-
-    let mut new_workbook = Workbook::new();
-
-    let WorkbookConfigurationSettings { protection } = workbook_configuration.workbook_settings;
-
-    let worksheet_configurations: Vec<WorksheetConfiguration> = workbook_configuration.worksheets;
-
-    worksheet_configurations.iter().for_each(|worksheet_configuration| prepare_worksheet_from_configuration(&mut new_workbook, worksheet_configuration, &protection).unwrap());
-
-    // Save new workbook
-    new_workbook.save("output.xlsx");
-
-    Ok(())
+    // Save workbook.
+   //let buffer = workbook.save_to_buffer()?;
+   //Ok(buffer)
+   let _ = workbook.save("tables.xlsx");
 }
 
 
@@ -307,10 +159,87 @@ fn read_json_from_file(filename: &str) -> Result<String, Box<dyn Error>> {
     Ok(json_string)
 }
 
+// #[no_mangle]
+// pub extern "C" fn create_workbook_from_json(
+//     json_string: *const c_char,
+//     out_buffer: *mut *mut u8,
+//     out_size: *mut usize
+// )  -> *mut c_char {
+//     if json_string.is_null() {
+//         let error_message = CString::new("Null pointer received").unwrap();
+
+//         return error_message.into_raw();
+//     }
+
+//     let c_str = unsafe { CStr::from_ptr(json_string) };
+//     let json_str = match c_str.to_str() {
+//         Ok(s) => s,
+//         Err(_) => {
+//             let error_message = CString::new("Invalid UTF8 sequence").unwrap();
+//             return error_message.into_raw();
+//         }
+//     };
+
+//     // Deserialize JSON
+//     let to_deserialized: Tables = match from_str(json_str) {
+//         Ok(s) => s,
+//         Err(_) => {
+//             let error_message = CString::new("Could not deserialize JSON").unwrap();
+//             return error_message.into_raw();
+//         }
+//     };
+
+//     // Process the workbook creation
+//     match create_new_workbook(to_deserialized) {
+//         Ok(buffer) => {
+//             unsafe {
+//                 *out_size = buffer.len();
+//                 let buf = libc::malloc(buffer.len()) as *mut u8;
+//                 if buf.is_null() {
+//                     let error_message = CString::new("Failed to allocate memory").unwrap();
+//                     return error_message.into_raw();
+//                 }
+//                 std::ptr::copy_nonoverlapping(buffer.as_ptr(), buf, buffer.len());
+//                 *out_buffer = buf;
+//             }
+//             std::ptr::null_mut()
+//         },
+//         Err(e) => {
+//             let error_message = CString::new(format!("Error creating workbook: {:?}", e)).unwrap();
+
+//             return error_message.into_raw();
+//         }
+//     }
+// }
+
+#[no_mangle]
+pub extern "C" fn free_buffer(buffer: *mut u8, size: usize) {
+    if !buffer.is_null() {
+        unsafe {
+            libc::free(buffer as *mut c_void);
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn free_rust_string(s: *mut c_char) {
+    if !s.is_null() {
+        unsafe {
+            CString::from_raw(s);
+        }
+    }
+}
+
 fn main() {
-    let filename = "example.json";
+    let filename = "test2.json";
     let json_string = read_json_from_file(&filename).unwrap();
 
-    let _ = create_workbook_from_json(&json_string);
+    //println!("JSON STRING: {:?}", json_string);
 
+    let to_deserialized: Tables = match from_str(&json_string) {
+        Ok(s) => s,
+        Err(e) => panic!("{}", format!("ERR: {:?}", e))
+    };
+
+    create_new_workbook(to_deserialized);
 }

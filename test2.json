@@ -1,0 +1,68 @@
+{
+    "tables": [
+        {
+            "table_name": "Gender Summary",
+            "variables": [
+                {
+                    "format": "0,00",
+                    "value": "Total Male Population"
+                },
+                {
+                    "format": "0,00",
+                    "value": "Total Female Population"
+                },
+                {
+                    "format": "0,00",
+                    "value": "Female Child Bearing Age (15-44)"
+                },
+                {
+                    "format": "0.00%",
+                    "value": "Male Average Age"
+                },
+                {
+                    "format": "0.00%",
+                    "value": "Female Average Age"
+                }
+            ],
+            "headers": [
+                "2024",
+                "2029",
+                "% Change"
+            ],
+            "data": [
+                [
+                    537613,
+                    541466,
+                    7,
+                    3
+                ],
+                [
+                    543669,
+                    554676,
+                    2,
+                    0.4
+                ],
+                [
+                    196916,
+                    198305,
+                    7,
+                    4
+                ],
+                [
+                    40.5,
+                    41.4,
+                    2,
+                    5.1
+                ],
+                [
+                    42.2,
+                    43.1,
+                    2.2,
+                    6.2
+                ]
+            ],
+            "columns": 5,
+            "rows": 6
+        }
+    ]
+}
